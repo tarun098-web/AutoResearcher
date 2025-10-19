@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+  <title>AutoResearcher</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 40px;
+    }
+
+    textarea {
+      width: 100%;
+      height: 150px;
+      margin-bottom: 10px;
+    }
+
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+    }
+
+    .result {
+      margin-top: 20px;
+      padding: 15px;
+      border: 1px solid #ccc;
+      background: #f9f9f9;
+    }
+
+    pre {
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      overflow-x: auto;
+      max-height: 400px;
+      background: #fff;
+      padding: 10px;
+      border: 1px solid #ddd;
+    }
+
+    .spinner {
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #333;
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      animation: spin 1s linear infinite;
+      display: inline-block;
+      vertical-align: middle;
+      margin-right: 10px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    #loader {
+      margin-top: 20px;
+      font-style: italic;
+      color: #555;
+    }
+  </style>
+</head>
+<body>
+  <h2>🔍 AutoResearcher: Paste Your Text</h2>
+
+  <textarea id="textInput" placeholder="Paste your text here..."></textarea>
+  <br>
+  <button onclick="submitText()">Submit</button>
+
+  <div id="loader" style="display: none;">
+    <div class="spinner"></div>Thinking... generating your results.
+  </div>
+
+  <div id="output" class="result" style="display: none;">
+    <h3>📝 Summary:</h3>
+    <pre id="summaryOutput"></pre>
+
+    <h3>📘 Simplified Version:</h3>
+    <pre id="simplifiedOutput"></pre>
+
+    <h3>❓ Q&A:</h3>
+    <pre id="qaOutput"></pre>
+  </div>
+
+  <script>
+    async function submitText() {
+      const inputText = document.getElementById("textInput").value;
+      const outputDiv = document.getElementById("output");
+      const loaderDiv = document.getElementById("loader");
+      const summaryEl = document.getElementById("summaryOutput");
+      const simplifiedEl = document.getElementById("simplifiedOutput");
+      const qaEl = document.getElementById("qaOutput");
+
+      if (!inputText.trim()) {
+        alert("Please enter some text.");
+        return;
+      }
+
+      outputDiv.style.display = "none";
+      loaderDiv.style.display = "block";
+
+      summaryEl.textContent = simplifiedEl.textContent = qaEl.textContent = "";
+
+      const endpoint = "https://90mzqx6bj5.execute-api.us-east-1.amazonaws.com/dev/process-text";
+
+      try {
+        const res = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: inputText })
+        });
+
+        const data = await res.json();
+        loaderDiv.style.display = "none";
+
+        if (res.ok) {
+          summaryEl.textContent = data.summary;
+          simplifiedEl.textContent = data.simplified;
+          qaEl.textContent = data.qa;
+          outputDiv.style.display = "block";
+        } else {
+          alert("Error: " + (data.error || "Unable to process text"));
+        }
+      } catch (error) {
+        loaderDiv.style.display = "none";
+        alert("Something went wrong. Check the console for details.");
+        console.error(error);
+      }
+    }
+  </script>
+</body>
+</html>

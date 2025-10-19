@@ -1,0 +1,130 @@
+org: student08
+service: autoresearcher
+
+frameworkVersion: '4'
+
+provider:
+  name: aws
+  runtime: python3.9
+  region: us-east-1
+  environment:
+    INPUT_BUCKET: autoresearcher-input-tarun
+    OUTPUT_BUCKET: autoresearcher-output-tarun
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - s3:GetObject
+            - s3:PutObject
+          Resource:
+            - arn:aws:s3:::autoresearcher-input-tarun/*
+            - arn:aws:s3:::autoresearcher-output-tarun/*
+        - Effect: Allow
+          Action:
+            - bedrock:InvokeModel
+          Resource: '*'
+        - Effect: Allow
+          Action:
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+          Resource: '*'
+        - Effect: Allow
+          Action:
+            - states:StartExecution
+          Resource: '*'
+        - Effect: Allow  # ✅ NEW for getResult Lambda to access S3 objects
+          Action:
+            - s3:GetObject
+          Resource:
+            - arn:aws:s3:::autoresearcher-output-tarun/summaries/*
+            - arn:aws:s3:::autoresearcher-output-tarun/simplified/*
+            - arn:aws:s3:::autoresearcher-output-tarun/qna/*
+
+functions:
+  summarizer:
+    handler: summarizer_lambda.lambda_handler
+    timeout: 30
+    memorySize: 256
+    events:
+      - s3:
+          bucket: autoresearcher-input-tarun
+          event: s3:ObjectCreated:*
+          rules:
+            - prefix: uploads/
+            - suffix: .txt
+          existing: true
+
+  explainer:
+    handler: explainer_lambda.lambda_handler
+    timeout: 30
+    memorySize: 256
+    events:
+      - s3:
+          bucket: autoresearcher-output-tarun
+          event: s3:ObjectCreated:*
+          rules:
+            - prefix: summaries/
+            - suffix: .txt
+          existing: true
+
+  qna:
+    handler: qna_lambda.lambda_handler
+    timeout: 30
+    memorySize: 256
+    events:
+      - s3:
+          bucket: autoresearcher-output-tarun
+          event: s3:ObjectCreated:*
+          rules:
+            - prefix: qna_trigger/
+            - suffix: .txt
+          existing: true
+
+  process_text:
+    handler: process_text_lambda.lambda_handler
+    timeout: 30
+    memorySize: 256
+    events:
+      - http:
+          path: process-text
+          method: post
+          cors: true
+
+  getResult:  # ✅ NEW FUNCTION
+    handler: get_result_lambda.lambda_handler
+    timeout: 10
+    memorySize: 128
+    events:
+      - http:
+          path: get-result
+          method: post
+          cors: true
+
+stepFunctions:
+  stateMachines:
+    autoResearcherFlow:
+      name: AutoResearcherStateMachine
+      definition:
+        Comment: "AutoResearcher Step Function Pipeline"
+        StartAt: Summarize
+        States:
+          Summarize:
+            Type: Task
+            Resource:
+              Fn::GetAtt: [ summarizer, Arn ]
+            Next: Simplify
+          Simplify:
+            Type: Task
+            Resource:
+              Fn::GetAtt: [ explainer, Arn ]
+            Next: QnA
+          QnA:
+            Type: Task
+            Resource:
+              Fn::GetAtt: [ qna, Arn ]
+            End: true
+
+plugins:
+  - serverless-step-functions
