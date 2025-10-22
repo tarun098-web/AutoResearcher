@@ -17,5 +17,4 @@ A lightweight, serverless application built on AWS for generating research summa
 See [24141615_Dande_Tarun.pdf](24141615_Dande_Tarun.pdf) for full details.
 
 ## Architecture
-<image-card alt="Architecture Diagram" src="architecture_diagram.png" >![Uploading image.png…]()
-</image-card>  # Upload the architecture image from the PDF if possible
+Refer to the report 
